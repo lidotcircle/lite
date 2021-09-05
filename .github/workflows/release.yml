@@ -8,26 +8,32 @@ on:
       - v[0-9]+.[0-9]
 
 jobs:
-  linux_x64_release:
+  setup:
     if: "contains(github.event.head_commit.message, '*CI*') || startsWith(github.ref, 'refs/tags')"
     runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.release.outputs.release }}
     steps:
-      - uses: actions/checkout@v2
-      - name: setup build environment
-        run: sudo apt install cmake clang libsdl2-dev
-      - name: get application version
+      - name: version
         id: version
         run: printf "::set-output name=version::%s\n" "$(cat cmake.toml | sed '/^version/!d' | tail -1 | sed 's/[ ]*version[ ]*=[ ]*//g;s/\"//g')"
-      - name: release name
+      - name: release
         id: release
         run: |
           branch=$(echo ${{github.ref}} | sed 's/refs\/\(heads\|tags\)\///g') && \
             release=$([[ "$branch" =~ v[0-9.]+ ]] && echo $branch || echo "$branch-${{ steps.version.outputs.version }}") && \
             echo "release_name=$release" && \
             printf "::set-output name=release::%s\n" "$release"
+
+  linux_x64_release:
+    needs: setup
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup build environment
+        run: sudo apt install cmake clang libsdl2-dev
+      - name: get application version
       - name: build application
         run: mkdir build && pushd build && cmake .. && make && cmake -E tar cf lite_linux_x64.tar.gz lite data
       - name: release
@@ -35,10 +41,11 @@ jobs:
         with:
           allowUpdates: true
           artifacts: "build/lite_linux_x64.tar.gz"
+          tag: ${{ jobs.setup.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   windows_release:
-    if: "contains(github.event.head_commit.message, '*CI*') || startsWith(github.ref, 'refs/tags')"
+    needs: setup
     runs-on: windows-latest
     strategy:
       matrix:
@@ -53,7 +60,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -G "NMake Makefiles" .
+          cmake -G "NMake Makefiles" ..
           nmake
           cmake -E tar cf lite_win64.zip lite.exe SDL2.dll data
       - name: release
@@ -61,5 +68,6 @@ jobs:
         with:
           allowUpdates: true
           artifacts: "build/lite_win64.zip"
+          tag: ${{ jobs.setup.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
