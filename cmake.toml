@@ -1,0 +1,41 @@
+[cmake]
+version = "3.15"
+
+[project]
+name = "lite"
+version = "1.11"
+cmake-before = """
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+if (WIN32)
+    # UTF8 Codepage
+    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+
+    # GUI APPLICATION /SUBSYSTEM:WINDOWS
+    set(CMAKE_WIN32_EXECUTABLE ON)
+endif()
+"""
+
+include-after = [
+    "cmake/CPM.cmake",
+    "cmake/lua.cmake",
+    "cmake/sdl2.cmake",
+]
+
+[target.lite]
+type = "executable"
+sources = ["src/**.c", "res.rc"]
+include-directories = ["src"]
+link-libraries = []
+
+cmake-after = """
+link_sdl2(${CMKR_TARGET})
+link_lua(${CMKR_TARGET})
+
+add_custom_command(TARGET ${CMKR_TARGET} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:${CMKR_TARGET}>/data)
+"""
+
+[[install]]
+targets = ["lite"]
+destination = "${CMAKE_INSTALL_PREFIX}/bin"
