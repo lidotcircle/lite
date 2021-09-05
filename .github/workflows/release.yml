@@ -3,7 +3,7 @@ name: lite release
 on:
   push:
     branches:
-      - master
+      - cmake
     tags:
       - v[0-9]+.[0-9]
 
