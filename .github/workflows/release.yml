@@ -3,7 +3,7 @@ name: lite release
 on:
   push:
     branches:
-      - cmake
+      - master
     tags:
       - v[0-9]+.[0-9]+
 
@@ -51,23 +51,31 @@ jobs:
       matrix:
         arch:
           - amd64
+          - amd64_x86
     steps:
       - uses: actions/checkout@v2
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch }}
+      - name: archieve name
+        id: archieve_name
+        run: |
+          if "${matrix.arch}" == "amd64" \
+            (echo "::set-output name=zipname::lite_win64.zip") \
+          else \
+            (echo "::set-output name=zipname::lite_win32.zip")
       - name: build lite
         run: |
           mkdir build
           cd build
           cmake -G "NMake Makefiles" ..
           nmake
-          cmake -E tar cf lite_win64.zip lite.exe SDL2.dll data
+          cmake -E tar cf ${{ steps.archieve_name.outputs.zipname }} lite.exe SDL2.dll data
       - name: release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          artifacts: "build/lite_win64.zip"
+          artifacts: "build/${{ steps.archieve_name.outputs.zipname }}"
           tag: ${{ needs.setup.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
