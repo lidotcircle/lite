@@ -83,13 +83,13 @@ target_include_directories(lite PRIVATE
 	src
 )
 
-target_link_libraries(lite PRIVATE
-	m
-)
 
 link_sdl2(${CMKR_TARGET})
 link_lua(${CMKR_TARGET})
 
+if (NOT WIN32)
+    target_link_libraries(${CMKR_TARGET} PRIVATE m)
+endif()
 add_custom_command(TARGET ${CMKR_TARGET} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:${CMKR_TARGET}>/data)
