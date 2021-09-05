@@ -28,7 +28,7 @@ jobs:
             printf "::set-output name=release::%s\n" "$release"
 
   linux_x64_release:
-    needs: setup
+    needs: [ setup ]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -41,11 +41,11 @@ jobs:
         with:
           allowUpdates: true
           artifacts: "build/lite_linux_x64.tar.gz"
-          tag: ${{ jobs.setup.outputs.release }}
+          tag: ${{ needs.setup.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   windows_release:
-    needs: setup
+    needs: [ setup ]
     runs-on: windows-latest
     strategy:
       matrix:
@@ -68,6 +68,6 @@ jobs:
         with:
           allowUpdates: true
           artifacts: "build/lite_win64.zip"
-          tag: ${{ jobs.setup.outputs.release }}
+          tag: ${{ needs.setup.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
