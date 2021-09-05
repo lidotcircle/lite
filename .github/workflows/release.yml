@@ -15,6 +15,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.release.outputs.release }}
     steps:
+      - uses: actions/checkout@v2
       - name: version
         id: version
         run: printf "::set-output name=version::%s\n" "$(cat cmake.toml | sed '/^version/!d' | tail -1 | sed 's/[ ]*version[ ]*=[ ]*//g;s/\"//g')"
@@ -33,7 +34,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: setup build environment
         run: sudo apt install cmake clang libsdl2-dev
-      - name: get application version
       - name: build application
         run: mkdir build && pushd build && cmake .. && make && cmake -E tar cf lite_linux_x64.tar.gz lite data
       - name: release
