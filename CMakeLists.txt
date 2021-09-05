@@ -83,6 +83,9 @@ target_include_directories(lite PRIVATE
 	src
 )
 
+target_link_libraries(lite PRIVATE
+	m
+)
 
 link_sdl2(${CMKR_TARGET})
 link_lua(${CMKR_TARGET})
