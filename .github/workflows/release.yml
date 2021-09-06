@@ -1,0 +1,82 @@
+
+name: lite release
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - v[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+
+
+jobs:
+  setup:
+    if: "contains(github.event.head_commit.message, '*CI*') || startsWith(github.ref, 'refs/tags')"
+    runs-on: ubuntu-20.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.release.outputs.release }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: version
+        id: version
+        run: printf "::set-output name=version::%s\n" "$(cat cmake.toml | sed '/^version/!d' | tail -1 | sed 's/[ ]*version[ ]*=[ ]*//g;s/\"//g')"
+      - name: release
+        id: release
+        run: |
+          branch=$(echo ${{github.ref}} | sed 's/refs\/\(heads\|tags\)\///g') && \
+            release=$([[ "$branch" =~ v[0-9.]+ ]] && echo $branch || echo "$branch-${{ steps.version.outputs.version }}") && \
+            echo "release_name=$release" && \
+            printf "::set-output name=release::%s\n" "$release"
+
+  linux_x64_release:
+    needs: [ setup ]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: setup build environment
+        run: sudo apt install cmake clang libsdl2-dev
+      - name: build application
+        run: mkdir build && pushd build && cmake .. && make && cmake -E tar cf lite_linux_x64.tar.gz lite data
+      - name: release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: "build/lite_linux_x64.tar.gz"
+          tag: ${{ needs.setup.outputs.release }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  windows_release:
+    needs: [ setup ]
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - amd64_x86
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - name: archieve name
+        id: archieve_name
+        run: >
+          if ("${{ matrix.arch }}" -eq "amd64")
+            { Write-Output "::set-output name=zipname::lite_win64.zip" }
+          else
+            { Write-Output "::set-output name=zipname::lite_win32.zip" }
+      - name: build lite
+        run: |
+          mkdir build
+          cd build
+          cmake -G "NMake Makefiles" ..
+          nmake
+          cmake -E tar cf ${{ steps.archieve_name.outputs.zipname }} lite.exe SDL2.dll data
+      - name: release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: "build/${{ steps.archieve_name.outputs.zipname }}"
+          tag: ${{ needs.setup.outputs.release }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+

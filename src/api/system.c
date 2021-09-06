@@ -1,14 +1,19 @@
 #include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <dirent.h>
-#include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include "api.h"
 #include "rencache.h"
 #ifdef _WIN32
   #include <windows.h>
+  #define S_MODE_ISREG(mode) (mode & S_IFREG)
+  #define S_MODE_ISDIR(mode) (mode & S_IFDIR)
+#else
+  #include <dirent.h>
+  #include <unistd.h>
+  #define S_MODE_ISREG(mode) S_ISREG(mode)
+  #define S_MODE_ISDIR(mode) S_ISDIR(mode)
 #endif
 
 extern SDL_Window *window;
@@ -234,6 +239,49 @@ static int f_chdir(lua_State *L) {
 
 
 static int f_list_dir(lua_State *L) {
+#ifdef _WIN32
+  const char *path = luaL_checkstring(L, 1);
+
+  TCHAR szDir[MAX_PATH];
+  int len = strlen(path);
+  if(len > sizeof(szDir) - 3) {
+    lua_pushnil(L);
+    lua_pushstring(L, "f_list_dir() failed: path is too long");
+    return 2;
+  }
+
+  strcpy(szDir, path);
+  strcat(szDir, "\\*");
+
+  WIN32_FIND_DATA ffd;
+  HANDLE hFind = FindFirstFile(szDir, &ffd);
+
+  if (INVALID_HANDLE_VALUE == hFind)
+  {
+    lua_pushnil(L);
+    lua_pushstring(L, "f_list_dir() failed: invalid handle");
+    return 2;
+  }
+
+  lua_newtable(L);
+  int i = 1;
+  do {
+    if (strcmp(ffd.cFileName, "." ) == 0) { continue; }
+    if (strcmp(ffd.cFileName, "..") == 0) { continue; }
+    lua_pushstring(L, ffd.cFileName);
+    lua_rawseti(L, -2, i);
+    i++;
+  } while (FindNextFile(hFind, &ffd) != 0);
+
+  int dwError = GetLastError();
+  if (dwError != ERROR_NO_MORE_FILES)
+  {
+    lua_pushnil(L);
+    lua_pushstring(L, "f_list_dir() failed: can't get all files");
+  }
+
+  FindClose(hFind);
+#else
   const char *path = luaL_checkstring(L, 1);
 
   DIR *dir = opendir(path);
@@ -255,6 +303,7 @@ static int f_list_dir(lua_State *L) {
   }
 
   closedir(dir);
+#endif // _WIN32
   return 1;
 }
 
@@ -292,9 +341,9 @@ static int f_get_file_info(lua_State *L) {
   lua_pushnumber(L, s.st_size);
   lua_setfield(L, -2, "size");
 
-  if (S_ISREG(s.st_mode)) {
+  if (S_MODE_ISREG(s.st_mode)) {
     lua_pushstring(L, "file");
-  } else if (S_ISDIR(s.st_mode)) {
+  } else if (S_MODE_ISDIR(s.st_mode)) {
     lua_pushstring(L, "dir");
   } else {
     lua_pushnil(L);
