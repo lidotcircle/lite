@@ -60,10 +60,7 @@ jobs:
       - name: archieve name
         id: archieve_name
         run: |
-          if "${matrix.arch}" == "amd64" \
-            (echo "::set-output name=zipname::lite_win64.zip") \
-          else \
-            (echo "::set-output name=zipname::lite_win32.zip")
+          if "${matrix.arch}" == "amd64" (echo "::set-output name=zipname::lite_win64.zip") else (echo "::set-output name=zipname::lite_win32.zip")
       - name: build lite
         run: |
           mkdir build
